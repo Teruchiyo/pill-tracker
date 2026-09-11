@@ -205,6 +205,7 @@
 <script>
 const STORAGE_KEY = 'pill-tracker-state-v1';
 let state = null;
+let editingDate = null;
 
 function toDate(str) {
   const [y, m, d] = str.split('-').map(Number);
@@ -424,7 +425,7 @@ function renderStrip(phase, today) {
   const start = phase.start;
   const totalDays = phase.type === 'dosing' ? Math.min(diffDays(start, today) + 1, 120) : diffDays(start, today) + 1;
   const showDays = Math.max(totalDays, 1);
-  const from = phase.type === 'dosing' ? Math.max(1, showDays - 20) : 1;
+  const from = 1;
   let dots = '';
   for (let i = from; i <= showDays; i++) {
     const d = addDays(start, i - 1);
@@ -436,12 +437,29 @@ function renderStrip(phase, today) {
     else if (diffDays(d, today) > 0) cls += ' missed';
     if (isToday) cls += ' today';
     const bleedCls = log.bleeding ? 'bleed-mark' : 'bleed-mark empty';
-    dots += `<div class="dot-col"><div class="${cls}"></div><div class="dot-num">${i}</div><div class="${bleedCls}"></div></div>`;
+    const clickable = phase.type === 'dosing' ? `data-date="${d}"` : '';
+    dots += `<div class="dot-col" ${clickable} style="${phase.type === 'dosing' ? 'cursor:pointer;' : ''}"><div class="${cls}"></div><div class="dot-num">${i}</div><div class="${bleedCls}"></div></div>`;
   }
+  const editPanel = editingDate ? renderEditPanel() : '';
   return `
     <div class="card">
-      <div class="section-label">直近の記録（●出血あり）</div>
-      <div class="strip">${dots}</div>
+      <div class="section-label">直近の記録（●出血あり・タップして編集）</div>
+      <div class="strip" id="strip">${dots}</div>
+      ${editPanel}
+    </div>
+  `;
+}
+
+function renderEditPanel() {
+  const log = state.logs[editingDate] || {};
+  return `
+    <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+      <div class="section-label" style="margin-bottom:8px;">${fmtJP(editingDate)}の記録を編集</div>
+      <div class="row">
+        <button class="btn ghost ${log.taken ? 'active' : ''}" id="edit-taken-btn">${log.taken ? '✓ 服用した' : '服用した'}</button>
+        <button class="btn ghost ${log.bleeding ? 'active' : ''}" id="edit-bleed-btn">${log.bleeding ? '✓ 出血あり' : '出血あり'}</button>
+      </div>
+      <button class="btn ghost wide" id="edit-close-btn" style="margin-top:8px;">閉じる</button>
     </div>
   `;
 }
@@ -464,6 +482,36 @@ function renderHistory() {
 function bindDashboard() {
   const { phase, today } = computeStatus();
 
+  const strip = document.getElementById('strip');
+  if (strip) strip.addEventListener('click', (e) => {
+    const col = e.target.closest('[data-date]');
+    if (!col) return;
+    editingDate = col.getAttribute('data-date');
+    render();
+  });
+
+  const editTakenBtn = document.getElementById('edit-taken-btn');
+  if (editTakenBtn) editTakenBtn.addEventListener('click', () => {
+    if (!state.logs[editingDate]) state.logs[editingDate] = {};
+    state.logs[editingDate].taken = !state.logs[editingDate].taken;
+    saveState();
+    render();
+  });
+
+  const editBleedBtn = document.getElementById('edit-bleed-btn');
+  if (editBleedBtn) editBleedBtn.addEventListener('click', () => {
+    if (!state.logs[editingDate]) state.logs[editingDate] = {};
+    state.logs[editingDate].bleeding = !state.logs[editingDate].bleeding;
+    saveState();
+    render();
+  });
+
+  const editCloseBtn = document.getElementById('edit-close-btn');
+  if (editCloseBtn) editCloseBtn.addEventListener('click', () => {
+    editingDate = null;
+    render();
+  });
+
   const takenBtn = document.getElementById('taken-btn');
   if (takenBtn) takenBtn.addEventListener('click', () => {
     if (!state.logs[today]) state.logs[today] = {};
@@ -484,6 +532,7 @@ function bindDashboard() {
   if (startBreakBtn) startBreakBtn.addEventListener('click', () => {
     const breakStart = addDays(today, 1);
     state.phases.push({ type: 'break', start: breakStart });
+    editingDate = null;
     saveState();
     render();
   });
@@ -491,6 +540,7 @@ function bindDashboard() {
   const resumeBtn = document.getElementById('resume-btn');
   if (resumeBtn) resumeBtn.addEventListener('click', () => {
     state.phases.push({ type: 'dosing', start: today });
+    editingDate = null;
     saveState();
     render();
   });
@@ -513,6 +563,7 @@ function bindDashboard() {
   if (resetBtn) resetBtn.addEventListener('click', () => {
     if (confirm('すべての記録を削除して最初からやり直しますか？')) {
       state = null;
+      editingDate = null;
       localStorage.removeItem(STORAGE_KEY);
       render();
     }

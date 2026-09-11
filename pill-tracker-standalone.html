@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>服薬トラッカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FBF7F2;
+    --surface: #FFFFFF;
+    --border: #E9DFD6;
+    --ink: #3B2E39;
+    --sub: #8A7B84;
+    --rose: #A6667D;
+    --rose-soft: #F3E4E9;
+    --sage: #6E8F76;
+    --sage-soft: #E7EFE6;
+    --amber: #B8823F;
+    --amber-soft: #F7ECD9;
+    --brick: #B3493D;
+    --brick-soft: #F7E4E1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 48px;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px 8px; }
+  h1 {
+    font-family: 'Shippori Mincho', serif;
+    font-weight: 700;
+    font-size: 20px;
+    margin: 4px 0 20px;
+    letter-spacing: 0.02em;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 18px;
+    margin-bottom: 14px;
+  }
+  .hero {
+    text-align: center;
+    padding: 26px 18px 22px;
+  }
+  .hero .phase-label {
+    font-size: 13px;
+    color: var(--sub);
+    margin-bottom: 6px;
+  }
+  .hero .day-num {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 56px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--rose);
+  }
+  .hero.break .day-num { color: var(--brick); }
+  .hero .day-suffix {
+    font-size: 15px;
+    color: var(--sub);
+    margin-top: 4px;
+  }
+  .hero .date-str {
+    font-size: 13px;
+    color: var(--sub);
+    margin-top: 10px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+  .banner {
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.7;
+    margin-bottom: 14px;
+  }
+  .banner.warn { background: var(--amber-soft); color: #6B4A17; }
+  .banner.alert { background: var(--brick-soft); color: #7A2C22; }
+  .banner.ok { background: var(--sage-soft); color: #3E5C43; }
+  .banner strong { display: block; margin-bottom: 4px; font-weight: 700; }
+  .row {
+    display: flex;
+    gap: 10px;
+  }
+  .btn {
+    flex: 1;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 10px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.primary { background: var(--rose); color: #fff; }
+  .btn.primary.done { background: var(--sage); }
+  .btn.ghost {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--ink);
+  }
+  .btn.ghost.active {
+    background: var(--amber-soft);
+    border-color: var(--amber);
+    color: #6B4A17;
+  }
+  .btn.wide { width: 100%; }
+  .btn.action { background: var(--brick); color: #fff; }
+  .section-label {
+    font-size: 13px;
+    color: var(--sub);
+    margin: 0 0 10px;
+  }
+  .strip {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .dot-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 26px;
+    flex-shrink: 0;
+  }
+  .dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--border);
+    margin-bottom: 4px;
+  }
+  .dot.taken { background: var(--sage); }
+  .dot.missed { background: var(--brick); }
+  .dot.today { box-shadow: 0 0 0 2px var(--rose); }
+  .dot.breakday { background: repeating-linear-gradient(45deg, var(--brick-soft), var(--brick-soft) 3px, var(--surface) 3px, var(--surface) 6px); border: 1px solid var(--brick); }
+  .dot-num { font-size: 10px; color: var(--sub); }
+  .bleed-mark { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); margin-top: 2px; }
+  .bleed-mark.empty { background: transparent; }
+  details { margin-bottom: 14px; }
+  summary {
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--rose);
+    padding: 4px 0;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary:before { content: '▸ '; }
+  details[open] summary:before { content: '▾ '; }
+  .hist-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--sub);
+  }
+  .hist-item:last-child { border-bottom: none; }
+  .symptom-list { font-size: 13px; line-height: 1.9; margin: 8px 0 0; padding-left: 18px; }
+  .setup { text-align: center; padding: 30px 20px; }
+  .setup p { font-size: 14px; color: var(--sub); line-height: 1.8; margin-bottom: 18px; }
+  input[type="date"] {
+    font-family: inherit;
+    font-size: 16px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--ink);
+    width: 100%;
+    margin-bottom: 14px;
+  }
+  textarea {
+    width: 100%;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--ink);
+    height: 90px;
+    margin-top: 8px;
+  }
+  .footnote { font-size: 12px; color: var(--sub); text-align: center; margin-top: 18px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+const STORAGE_KEY = 'pill-tracker-state-v1';
+let state = null;
+let editingDate = null;
+
+function toDate(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+function toStr(date) { return date.toISOString().slice(0, 10); }
+function addDays(str, n) { const d = toDate(str); d.setUTCDate(d.getUTCDate() + n); return toStr(d); }
+function diffDays(a, b) { return Math.round((toDate(b) - toDate(a)) / 86400000); }
+function todayStr() {
+  const d = new Date();
+  return toStr(new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())));
+}
+function fmtJP(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return `${y}年${m}月${d}日`;
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* ignore */ }
+  return null;
+}
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) { console.error('save failed', e); }
+}
+
+function currentPhase() { return state.phases[state.phases.length - 1]; }
+
+function render() {
+  const app = document.getElementById('app');
+  if (!state) {
+    app.innerHTML = renderSetup();
+    bindSetup();
+    return;
+  }
+  app.innerHTML = renderDashboard();
+  bindDashboard();
+}
+
+function renderSetup() {
+  return `
+    <h1>服薬トラッカー</h1>
+    <div class="card setup">
+      <p>最長120日連続服用のスケジュール管理を始めます。<br>1錠目を服用した日（月経が始まった日）を選んでください。</p>
+      <input type="date" id="start-date" value="${todayStr()}" max="${todayStr()}">
+      <button class="btn primary wide" id="start-btn">この日から記録を始める</button>
+    </div>
+    <details>
+      <summary>他の端末の記録を読み込む</summary>
+      <div class="card" style="margin-top:8px;">
+        <p style="font-size:13px; color:var(--sub); margin:0 0 6px;">別の端末の「バックアップコードを書き出す」で得た文字列を貼り付けてください。</p>
+        <textarea id="import-box" placeholder="ここに貼り付け"></textarea>
+        <button class="btn ghost wide" id="import-btn" style="margin-top:8px;">読み込む</button>
+      </div>
+    </details>
+    <p class="footnote">この端末のSafari内だけに保存されます。アカウントへのログインは不要です。他の端末と共有したい場合は「バックアップコード」を使ってください。</p>
+  `;
+}
+
+function bindSetup() {
+  document.getElementById('start-btn').addEventListener('click', () => {
+    const d = document.getElementById('start-date').value || todayStr();
+    state = {
+      phases: [{ type: 'dosing', start: d }],
+      logs: {}
+    };
+    saveState();
+    render();
+  });
+  document.getElementById('import-btn').addEventListener('click', () => {
+    const raw = document.getElementById('import-box').value.trim();
+    try {
+      const parsed = JSON.parse(atob(raw));
+      if (!parsed.phases) throw new Error('invalid');
+      state = parsed;
+      saveState();
+      render();
+    } catch (e) {
+      alert('コードを読み取れませんでした。コピーし直して貼り付けてください。');
+    }
+  });
+}
+
+function computeStatus() {
+  const phase = currentPhase();
+  const today = todayStr();
+  const dayIn = diffDays(phase.start, today) + 1;
+  return { phase, dayIn, today };
+}
+
+function consecutiveBleedingEndingToday(today) {
+  let count = 0;
+  let d = today;
+  while (state.logs[d] && state.logs[d].bleeding) {
+    count++;
+    d = addDays(d, -1);
+  }
+  return count;
+}
+
+function missedDoseInfo(phase, today, dayIn) {
+  if (dayIn <= 1) return { missedYesterday: false, streak: 0 };
+  let streak = 0;
+  let d = addDays(today, -1);
+  while (diffDays(phase.start, d) >= 0) {
+    const log = state.logs[d];
+    if (log && log.taken) break;
+    streak++;
+    d = addDays(d, -1);
+  }
+  return { missedYesterday: streak > 0, streak };
+}
+
+function renderDashboard() {
+  const { phase, dayIn, today } = computeStatus();
+  const isDosing = phase.type === 'dosing';
+  const todayLog = state.logs[today] || {};
+
+  let banners = '';
+  let actionButtons = '';
+
+  if (isDosing) {
+    const miss = missedDoseInfo(phase, today, dayIn);
+    if (miss.missedYesterday && !todayLog.taken) {
+      if (miss.streak >= 4) {
+        banners += `<div class="banner alert"><strong>4日以上服用できていません</strong>すぐに医師にご相談ください。自己判断での再開は避けてください。</div>`;
+      } else {
+        banners += `<div class="banner warn"><strong>飲み忘れがあります（${miss.streak}日分）</strong>気づいた時点で前日分を1錠、いつもの時間に当日分をもう1錠服用します。翌日からは通常どおり続けます。</div>`;
+      }
+    }
+
+    if (dayIn >= 120) {
+      banners += `<div class="banner alert"><strong>最長120日に到達しました</strong>ここで4日間の休薬に入ります。</div>`;
+      actionButtons += `<button class="btn action wide" id="start-break-btn">休薬を開始する（今日まで服用）</button>`;
+    } else if (dayIn >= 25) {
+      const bleedStreak = consecutiveBleedingEndingToday(today);
+      if (bleedStreak >= 3) {
+        banners += `<div class="banner warn"><strong>出血が3日連続しています</strong>25日目以降の3日連続出血が確認されたので、明日から4日間休薬できます。</div>`;
+        actionButtons += `<button class="btn action wide" id="start-break-btn">明日から休薬を開始する</button>`;
+      }
+    }
+
+    actionButtons += `
+      <div class="row" style="margin-top:${actionButtons ? '10px' : '0'}">
+        <button class="btn primary ${todayLog.taken ? 'done' : ''}" id="taken-btn">${todayLog.taken ? '✓ 今日は服用済み' : '今日、服用した'}</button>
+        <button class="btn ghost ${todayLog.bleeding ? 'active' : ''}" id="bleed-btn">${todayLog.bleeding ? '✓ 出血あり' : '出血を記録'}</button>
+      </div>
+    `;
+  } else {
+    if (dayIn >= 5) {
+      banners += `<div class="banner ok"><strong>休薬期間（4日間）が終了しました</strong>今日から服用を再開してください。</div>`;
+      actionButtons += `<button class="btn primary wide" id="resume-btn">今日から服用を再開する</button>`;
+    } else {
+      banners += `<div class="banner warn"><strong>休薬中（${dayIn}/4日目）</strong>あと${4 - dayIn}日で服用を再開します。</div>`;
+    }
+  }
+
+  const heroLabel = isDosing ? '服用中' : '休薬中';
+  const heroClass = isDosing ? '' : 'break';
+  const heroSuffix = isDosing ? `日目 / 最長120日` : `日目 / 4日間`;
+
+  return `
+    <h1>服薬トラッカー</h1>
+    <div class="card hero ${heroClass}">
+      <div class="phase-label">${heroLabel}</div>
+      <div class="day-num">${dayIn}</div>
+      <div class="day-suffix">${heroSuffix}</div>
+      <div class="date-str">${fmtJP(today)}</div>
+    </div>
+    ${banners}
+    <div class="card">
+      ${actionButtons}
+    </div>
+    ${renderStrip(phase, today)}
+    <details>
+      <summary>これまでの周期</summary>
+      <div class="card" style="margin-top:8px;">
+        ${renderHistory()}
+      </div>
+    </details>
+    <details>
+      <summary>血栓症が疑われる症状（緊急時の目安）</summary>
+      <div class="card" style="margin-top:8px;">
+        <div style="font-size:13px; color:var(--brick); font-weight:700; margin-bottom:6px;">すぐに救急を受診</div>
+        <ul class="symptom-list">
+          <li>突然の足の痛み・腫れ</li>
+          <li>手足の脱力・まひ</li>
+          <li>突然の息切れ、押しつぶされるような胸の痛み</li>
+          <li>激しい頭痛、舌のもつれ・しゃべりにくい</li>
+          <li>突然の視力障害</li>
+        </ul>
+        <div style="font-size:13px; color:var(--amber); font-weight:700; margin:12px 0 6px;">服用をやめてすぐ医師に相談</div>
+        <ul class="symptom-list">
+          <li>足の痛み・腫れ・しびれ・発赤・ほてり</li>
+          <li>頭痛、嘔吐・吐き気</li>
+        </ul>
+      </div>
+    </details>
+    <details>
+      <summary>他の端末に記録を移す（バックアップコード）</summary>
+      <div class="card" style="margin-top:8px;">
+        <p style="font-size:13px; color:var(--sub); margin:0 0 6px;">下のコードをコピーし、他の端末でこのファイルを開いて「他の端末の記録を読み込む」に貼り付けてください。</p>
+        <textarea readonly id="export-box">${btoa(JSON.stringify(state))}</textarea>
+        <button class="btn ghost wide" id="copy-btn" style="margin-top:8px;">コードをコピー</button>
+      </div>
+    </details>
+    <p class="footnote">記録はこの端末のSafari内にのみ保存されます（アカウント不要）。実際の服用や休薬の判断は必ず処方元の指示に従ってください。</p>
+    <button class="btn ghost wide" id="reset-btn" style="margin-top:6px;">記録をリセットする</button>
+  `;
+}
+
+function renderStrip(phase, today) {
+  const start = phase.start;
+  const totalDays = phase.type === 'dosing' ? Math.min(diffDays(start, today) + 1, 120) : diffDays(start, today) + 1;
+  const showDays = Math.max(totalDays, 1);
+  const from = 1;
+  let dots = '';
+  for (let i = from; i <= showDays; i++) {
+    const d = addDays(start, i - 1);
+    const log = state.logs[d] || {};
+    const isToday = d === today;
+    let cls = 'dot';
+    if (phase.type === 'break') cls += ' breakday';
+    else if (log.taken) cls += ' taken';
+    else if (diffDays(d, today) > 0) cls += ' missed';
+    if (isToday) cls += ' today';
+    const bleedCls = log.bleeding ? 'bleed-mark' : 'bleed-mark empty';
+    const clickable = phase.type === 'dosing' ? `data-date="${d}"` : '';
+    dots += `<div class="dot-col" ${clickable} style="${phase.type === 'dosing' ? 'cursor:pointer;' : ''}"><div class="${cls}"></div><div class="dot-num">${i}</div><div class="${bleedCls}"></div></div>`;
+  }
+  const editPanel = editingDate ? renderEditPanel() : '';
+  return `
+    <div class="card">
+      <div class="section-label">直近の記録（●出血あり・タップして編集）</div>
+      <div class="strip" id="strip">${dots}</div>
+      ${editPanel}
+    </div>
+  `;
+}
+
+function renderEditPanel() {
+  const log = state.logs[editingDate] || {};
+  return `
+    <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+      <div class="section-label" style="margin-bottom:8px;">${fmtJP(editingDate)}の記録を編集</div>
+      <div class="row">
+        <button class="btn ghost ${log.taken ? 'active' : ''}" id="edit-taken-btn">${log.taken ? '✓ 服用した' : '服用した'}</button>
+        <button class="btn ghost ${log.bleeding ? 'active' : ''}" id="edit-bleed-btn">${log.bleeding ? '✓ 出血あり' : '出血あり'}</button>
+      </div>
+      <button class="btn ghost wide" id="edit-close-btn" style="margin-top:8px;">閉じる</button>
+    </div>
+  `;
+}
+
+function renderHistory() {
+  if (state.phases.length <= 1) {
+    return `<div class="hist-item"><span>まだ記録がありません</span></div>`;
+  }
+  let html = '';
+  for (let i = state.phases.length - 2; i >= 0; i--) {
+    const p = state.phases[i];
+    const next = state.phases[i + 1];
+    const label = p.type === 'dosing' ? '服用期間' : '休薬期間';
+    const len = diffDays(p.start, next.start);
+    html += `<div class="hist-item"><span>${label}（${fmtJP(p.start)}〜）</span><span>${len}日間</span></div>`;
+  }
+  return html;
+}
+
+function bindDashboard() {
+  const { phase, today } = computeStatus();
+
+  const strip = document.getElementById('strip');
+  if (strip) strip.addEventListener('click', (e) => {
+    const col = e.target.closest('[data-date]');
+    if (!col) return;
+    editingDate = col.getAttribute('data-date');
+    render();
+  });
+
+  const editTakenBtn = document.getElementById('edit-taken-btn');
+  if (editTakenBtn) editTakenBtn.addEventListener('click', () => {
+    if (!state.logs[editingDate]) state.logs[editingDate] = {};
+    state.logs[editingDate].taken = !state.logs[editingDate].taken;
+    saveState();
+    render();
+  });
+
+  const editBleedBtn = document.getElementById('edit-bleed-btn');
+  if (editBleedBtn) editBleedBtn.addEventListener('click', () => {
+    if (!state.logs[editingDate]) state.logs[editingDate] = {};
+    state.logs[editingDate].bleeding = !state.logs[editingDate].bleeding;
+    saveState();
+    render();
+  });
+
+  const editCloseBtn = document.getElementById('edit-close-btn');
+  if (editCloseBtn) editCloseBtn.addEventListener('click', () => {
+    editingDate = null;
+    render();
+  });
+
+  const takenBtn = document.getElementById('taken-btn');
+  if (takenBtn) takenBtn.addEventListener('click', () => {
+    if (!state.logs[today]) state.logs[today] = {};
+    state.logs[today].taken = !state.logs[today].taken;
+    saveState();
+    render();
+  });
+
+  const bleedBtn = document.getElementById('bleed-btn');
+  if (bleedBtn) bleedBtn.addEventListener('click', () => {
+    if (!state.logs[today]) state.logs[today] = {};
+    state.logs[today].bleeding = !state.logs[today].bleeding;
+    saveState();
+    render();
+  });
+
+  const startBreakBtn = document.getElementById('start-break-btn');
+  if (startBreakBtn) startBreakBtn.addEventListener('click', () => {
+    const breakStart = addDays(today, 1);
+    state.phases.push({ type: 'break', start: breakStart });
+    editingDate = null;
+    saveState();
+    render();
+  });
+
+  const resumeBtn = document.getElementById('resume-btn');
+  if (resumeBtn) resumeBtn.addEventListener('click', () => {
+    state.phases.push({ type: 'dosing', start: today });
+    editingDate = null;
+    saveState();
+    render();
+  });
+
+  const copyBtn = document.getElementById('copy-btn');
+  if (copyBtn) copyBtn.addEventListener('click', () => {
+    const box = document.getElementById('export-box');
+    box.select();
+    box.setSelectionRange(0, 99999);
+    try {
+      navigator.clipboard.writeText(box.value);
+      copyBtn.textContent = 'コピーしました';
+      setTimeout(() => { copyBtn.textContent = 'コードをコピー'; }, 1500);
+    } catch (e) {
+      document.execCommand('copy');
+    }
+  });
+
+  const resetBtn = document.getElementById('reset-btn');
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    if (confirm('すべての記録を削除して最初からやり直しますか？')) {
+      state = null;
+      editingDate = null;
+      localStorage.removeItem(STORAGE_KEY);
+      render();
+    }
+  });
+}
+
+state = loadState();
+render();
+</script>
+</body>
+</html>
